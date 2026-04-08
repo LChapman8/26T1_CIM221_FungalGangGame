@@ -4,7 +4,7 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 public class PlayerController : MonoBehaviour
 {
-    [Header("Movement")]
+    [Header("Base Movement")]
     public float moveSpeed = 5f;
 
     [Header("Jump")]
@@ -20,6 +20,12 @@ public class PlayerController : MonoBehaviour
     private float moveInput;
     private bool isGrounded;
 
+    private float movementMultiplier = 1f;
+    private float jumpMultiplier = 1f;
+
+    private bool controlLocked = false;
+    private Vector3 lockedWorldPosition;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -29,8 +35,6 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        moveInput = Input.GetAxisRaw("Horizontal");
-
         // Check if grounded
         isGrounded = Physics2D.OverlapCircle(
             groundCheck.position,
@@ -38,10 +42,29 @@ public class PlayerController : MonoBehaviour
             groundLayer
         );
 
+        if (controlLocked)
+        {
+            moveInput = 0f;
+            rb.linearVelocity = Vector2.zero;
+            transform.position = new Vector3(
+                lockedWorldPosition.x,
+                lockedWorldPosition.y,
+                transform.position.z
+            );
+
+            anim.SetFloat("Speed", 0f);
+            return;
+        }
+
+        moveInput = Input.GetAxisRaw("Horizontal");
+
         // Jump with spacebar
         if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+            rb.linearVelocity = new Vector2(
+                rb.linearVelocity.x,
+                jumpForce * jumpMultiplier
+            );
         }
 
         // Animation
@@ -56,7 +79,42 @@ public class PlayerController : MonoBehaviour
 
     void FixedUpdate()
     {
-        rb.linearVelocity = new Vector2(moveInput * moveSpeed, rb.linearVelocity.y);
+        if (controlLocked)
+        {
+            rb.linearVelocity = Vector2.zero;
+            return;
+        }
+
+        rb.linearVelocity = new Vector2(
+            moveInput * moveSpeed * movementMultiplier,
+            rb.linearVelocity.y
+        );
+    }
+
+    public void SetMovementMultiplier(float multiplier)
+    {
+        movementMultiplier = Mathf.Max(0f, multiplier);
+    }
+
+    public void SetJumpMultiplier(float multiplier)
+    {
+        jumpMultiplier = Mathf.Max(0f, multiplier);
+    }
+
+    public void SetControlLock(bool locked, Vector3 worldPosition = default)
+    {
+        controlLocked = locked;
+
+        if (locked)
+        {
+            lockedWorldPosition = worldPosition;
+            rb.linearVelocity = Vector2.zero;
+        }
+    }
+
+    public bool IsControlLocked()
+    {
+        return controlLocked;
     }
 
     // Optional: visualize ground check
