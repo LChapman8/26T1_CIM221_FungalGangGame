@@ -4,6 +4,7 @@ public class DevControls : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private FungalNetworkManager networkManager;
+    [SerializeField] private PollutionManager pollutionManager;
 
     [Header("Test Values")]
     [SerializeField] private float nodeDamageAmount = 10f;
@@ -16,9 +17,10 @@ public class DevControls : MonoBehaviour
     private void Awake()
     {
         if (networkManager == null)
-        {
             networkManager = FindFirstObjectByType<FungalNetworkManager>();
-        }
+
+        if (pollutionManager == null)
+            pollutionManager = FindFirstObjectByType<PollutionManager>();
     }
 
     private void Update()
@@ -42,13 +44,19 @@ public class DevControls : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.F6))
             Debug.Log($"Network Health: {networkManager.NetworkHealthPercent:0.0}%");
+
+        if (Input.GetKeyDown(KeyCode.F7) && pollutionManager != null)
+            pollutionManager.ClearRandomCells(3);
+
+        if (Input.GetKeyDown(KeyCode.F8) && pollutionManager != null)
+            pollutionManager.ClearAllPollution();
     }
 
     private void OnGUI()
     {
         if (!showOverlay || networkManager == null) return;
 
-        GUILayout.BeginArea(new Rect(10, 10, 320, 200), GUI.skin.box);
+        GUILayout.BeginArea(new Rect(10, 10, 320, 260), GUI.skin.box);
         GUILayout.Label("DEV CONTROLS");
         GUILayout.Label($"Network Health: {networkManager.NetworkHealthPercent:0.0}%");
         GUILayout.Label("F1 - Toggle this overlay");
@@ -57,6 +65,8 @@ public class DevControls : MonoBehaviour
         GUILayout.Label($"F4 - Direct player damage ({playerDamagePercent}% network)");
         GUILayout.Label("F5 - Fully restore all nodes");
         GUILayout.Label("F6 - Print network health to console");
+        GUILayout.Label("F7 - Clear 3 random pollution cells");
+        GUILayout.Label("F8 - Clear all pollution");
         GUILayout.EndArea();
     }
 }

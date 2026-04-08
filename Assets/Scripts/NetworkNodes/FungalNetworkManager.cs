@@ -116,15 +116,26 @@ public class FungalNetworkManager : MonoBehaviour
 
     public void NotifyNodeHealthChanged(NetworkNode changedNode)
     {
-        ApplyPlayerScaling();
-
         // Future additions:
-        // - tell pollution manager to change spread speed
         // - update UI
         // - check win condition
-        if (AllNodesFullyRestored)
+        ApplyPlayerScaling();
+
+        PollutionManager pollution = FindFirstObjectByType<PollutionManager>();
+
+        if (pollution != null)
         {
-            Debug.Log("All nodes restored. Trigger win state and clear pollution.");
+            if (changedNode.CurrentHealth > 0f)
+            {
+                // Remove 1 random cloud whenever a node gains health.
+                pollution.ClearRandomCells(1);
+            }
+
+            if (AllNodesFullyRestored)
+            {
+                pollution.ClearAllPollution();
+                Debug.Log("All nodes restored. Trigger win state.");
+            }
         }
     }
 
