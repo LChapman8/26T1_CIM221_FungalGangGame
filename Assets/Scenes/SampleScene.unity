@@ -1012,7 +1012,7 @@ MonoBehaviour:
   baseSpreadChance: 0.35
   extraSpreadChanceAtMaxCollapse: 0.4
   use8Directions: 0
-  clearAllPollutionWhenAllNodesRestored: 0
+  clearAllPollutionWhenAllNodesRestored: 1
 --- !u!4 &501766766
 Transform:
   m_ObjectHideFlags: 0

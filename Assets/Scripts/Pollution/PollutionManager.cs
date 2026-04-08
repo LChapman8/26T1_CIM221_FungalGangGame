@@ -27,7 +27,9 @@ public class PollutionManager : MonoBehaviour
     [SerializeField] private bool clearAllPollutionWhenAllNodesRestored = true;
 
     private readonly Dictionary<Vector2Int, PollutionCell> activeCells = new();
-    private readonly List<Vector2Int> validGridCells = new();
+    private readonly HashSet<Vector2Int> validGridCells = new();
+
+    private bool networkHasBeenDamagedAtLeastOnce = false;
 
     private static readonly Vector2Int[] CardinalDirs =
     {
@@ -61,15 +63,22 @@ public class PollutionManager : MonoBehaviour
         }
 
         BuildValidGrid();
-        Debug.Log($"Valid pollution cells found: {validGridCells.Count}");
-
         SpawnInitialSeeds();
         StartCoroutine(SpreadRoutine());
     }
 
     private void Update()
     {
+        if (networkManager != null && !networkHasBeenDamagedAtLeastOnce)
+        {
+            if (networkManager.NetworkHealthNormalized < 0.999f)
+            {
+                networkHasBeenDamagedAtLeastOnce = true;
+            }
+        }
+
         if (clearAllPollutionWhenAllNodesRestored &&
+            networkHasBeenDamagedAtLeastOnce &&
             networkManager != null &&
             networkManager.AllNodesFullyRestored &&
             activeCells.Count > 0)
@@ -126,19 +135,18 @@ public class PollutionManager : MonoBehaviour
             return;
         }
 
-        int spawned = 0;
-        int attempts = 0;
+        List<Vector2Int> cellPool = new(validGridCells);
 
-        while (spawned < initialSeedCount && attempts < maxInitialSeedAttempts)
+        for (int i = 0; i < initialSeedCount && cellPool.Count > 0; i++)
         {
-            attempts++;
+            int index = Random.Range(0, cellPool.Count);
+            Vector2Int randomCell = cellPool[index];
+            cellPool.RemoveAt(index);
 
-            Vector2Int randomCell = validGridCells[Random.Range(0, validGridCells.Count)];
-            if (HasCell(randomCell))
-                continue;
-
-            SpawnCell(randomCell);
-            spawned++;
+            if (!HasCell(randomCell))
+            {
+                SpawnCell(randomCell);
+            }
         }
     }
 
@@ -243,11 +251,7 @@ public class PollutionManager : MonoBehaviour
 
     public bool IsValidGridCell(Vector2Int gridPos)
     {
-        if (!validGridCells.Contains(gridPos))
-            return false;
-
-        Vector2 worldPos = GridToWorld(gridPos);
-        return pollutionBounds.OverlapPoint(worldPos);
+        return validGridCells.Contains(gridPos);
     }
 
     public Vector3 GridToWorld(Vector2Int gridPos)

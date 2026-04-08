@@ -23,6 +23,9 @@ public class PollutionCell : MonoBehaviour
     private readonly HashSet<PlayerController> playersInside = new();
     private readonly HashSet<NetworkNode> nodesInside = new();
 
+    private readonly List<PlayerController> playerSnapshot = new();
+    private readonly List<NetworkNode> nodeSnapshot = new();
+
     public void Initialize(PollutionManager pollutionManager, Vector2Int position)
     {
         manager = pollutionManager;
@@ -68,16 +71,33 @@ public class PollutionCell : MonoBehaviour
 
         if (playersInside.Count > 0 && FungalNetworkManager.Instance != null)
         {
-            FungalNetworkManager.Instance.ApplyDirectPlayerDamage(playerDamagePerSecond * dt);
+            playerSnapshot.Clear();
+            playerSnapshot.AddRange(playersInside);
+
+            if (playerSnapshot.Count > 0)
+            {
+                FungalNetworkManager.Instance.ApplyDirectPlayerDamage(playerDamagePerSecond * dt);
+            }
         }
 
         if (nodesInside.Count > 0)
         {
-            foreach (NetworkNode node in nodesInside)
+            nodeSnapshot.Clear();
+            nodeSnapshot.AddRange(nodesInside);
+
+            for (int i = 0; i < nodeSnapshot.Count; i++)
             {
-                if (node != null && !node.IsDestroyed)
+                NetworkNode node = nodeSnapshot[i];
+
+                if (node == null || !node.isActiveAndEnabled)
+                    continue;
+
+                if (!node.IsDestroyed)
                 {
                     node.Damage(nodeDamagePerSecond * dt);
+
+                    if (this == null || !isActiveAndEnabled)
+                        return;
                 }
             }
         }
@@ -115,5 +135,7 @@ public class PollutionCell : MonoBehaviour
     {
         playersInside.Clear();
         nodesInside.Clear();
+        playerSnapshot.Clear();
+        nodeSnapshot.Clear();
     }
 }
