@@ -116,7 +116,7 @@ public class FungalNetworkManager : MonoBehaviour
 
     public void NotifyNodeHealthChanged(NetworkNode changedNode)
     {
-        // To-do:
+        // To-Do:
         // - update UI
         // - check win condition
         // - Clear partial pollution on node heal

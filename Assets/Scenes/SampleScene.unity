@@ -1011,7 +1011,7 @@ MonoBehaviour:
   minSpreadInterval: 0.25
   baseSpreadChance: 0.35
   extraSpreadChanceAtMaxCollapse: 0.4
-  use8Directions: 0
+  use8Directions: 1
   clearAllPollutionWhenAllNodesRestored: 1
 --- !u!4 &501766766
 Transform:
@@ -2036,6 +2036,10 @@ PrefabInstance:
     - target: {fileID: 7076659926381997492, guid: e562d0c67dd463b41937a458f1b24f72, type: 3}
       propertyPath: currentHealth
       value: 63
+      objectReference: {fileID: 0}
+    - target: {fileID: 7076659926381997492, guid: e562d0c67dd463b41937a458f1b24f72, type: 3}
+      propertyPath: startFullyRepaired
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9053060174565923147, guid: e562d0c67dd463b41937a458f1b24f72, type: 3}
       propertyPath: m_Name

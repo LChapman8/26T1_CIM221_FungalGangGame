@@ -128,4 +128,4 @@ MonoBehaviour:
   repairKey: 101
   fullRepairTime: 4.5
   channelLockPoint: {fileID: 1876360123956557167}
-  startFullyRepaired: 1
+  startFullyRepaired: 0

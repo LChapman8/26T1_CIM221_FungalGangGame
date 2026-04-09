@@ -30,6 +30,9 @@ public class NetworkNode : MonoBehaviour
 
     private void Awake()
     {
+        // To-Do:
+        // - Set random starting health
+
         repairRatePerSecond = maxHealth / fullRepairTime;
 
         currentHealth = startFullyRepaired ? maxHealth : 0f;
@@ -109,6 +112,9 @@ public class NetworkNode : MonoBehaviour
 
     private void StartChanneling()
     {
+        // To-Do:
+        // - Allow for healing while still in smog
+
         if (playerInRange == null) return;
 
         if (!isChanneling)
