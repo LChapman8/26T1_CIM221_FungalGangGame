@@ -1006,7 +1006,6 @@ MonoBehaviour:
   networkManager: {fileID: 957247067}
   cellSize: 1
   initialSeedCount: 5
-  maxInitialSeedAttempts: 100
   baseSpreadInterval: 1.25
   minSpreadInterval: 0.25
   baseSpreadChance: 0.35
