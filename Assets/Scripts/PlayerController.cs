@@ -9,6 +9,7 @@ public class PlayerController : MonoBehaviour
 
     [Header("Jump")]
     public float jumpForce = 10f;
+    public int maxJumps = 2;
     public Transform groundCheck;
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayer;
@@ -19,6 +20,8 @@ public class PlayerController : MonoBehaviour
 
     private float moveInput;
     private bool isGrounded;
+    private bool wasGrounded;
+    private int jumpsUsed;
 
     private float movementMultiplier = 1f;
     private float jumpMultiplier = 1f;
@@ -42,6 +45,14 @@ public class PlayerController : MonoBehaviour
             groundLayer
         );
 
+        // Reset jumps only when landing
+        if (isGrounded && !wasGrounded)
+        {
+            jumpsUsed = 0;
+        }
+
+        wasGrounded = isGrounded;
+
         if (controlLocked)
         {
             moveInput = 0f;
@@ -59,12 +70,14 @@ public class PlayerController : MonoBehaviour
         moveInput = Input.GetAxisRaw("Horizontal");
 
         // Jump with spacebar
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        if (Input.GetKeyDown(KeyCode.Space) && jumpsUsed < maxJumps)
         {
             rb.linearVelocity = new Vector2(
                 rb.linearVelocity.x,
                 jumpForce * jumpMultiplier
             );
+
+            jumpsUsed++;
         }
 
         // Animation
