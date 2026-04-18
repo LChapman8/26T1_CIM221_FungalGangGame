@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.VFX;
 
 [RequireComponent(typeof(BoxCollider2D))]
 [RequireComponent(typeof(Rigidbody2D))]
@@ -9,13 +10,8 @@ public class PollutionCell : MonoBehaviour
     [SerializeField] private float playerDamagePerSecond = 12f;
     [SerializeField] private float nodeDamagePerSecond = 18f;
 
-    [Header("Visual Pulse")]
-    [SerializeField] private SpriteRenderer visualRenderer;
-    [SerializeField] private float pulseSpeed = 1.5f;
-    [SerializeField] private float minAlpha = 0.28f;
-    [SerializeField] private float maxAlpha = 0.45f;
-    [SerializeField] private float minScale = 0.92f;
-    [SerializeField] private float maxScale = 1.08f;
+    [Header("VFX")]
+    [SerializeField] private VisualEffect visualEffect;
 
     private PollutionManager manager;
     private Vector2Int gridPos;
@@ -32,6 +28,22 @@ public class PollutionCell : MonoBehaviour
         gridPos = position;
     }
 
+    private void Awake()
+    {
+        if (visualEffect == null)
+        {
+            visualEffect = GetComponentInChildren<VisualEffect>();
+        }
+    }
+
+    private void Start()
+    {
+        if (visualEffect != null)
+        {
+            visualEffect.Play();
+        }
+    }
+
     private void Reset()
     {
         BoxCollider2D col = GetComponent<BoxCollider2D>();
@@ -45,23 +57,24 @@ public class PollutionCell : MonoBehaviour
 
     private void Update()
     {
-        AnimateVisual();
+        //AnimateVisual();
         ApplyDamage(Time.deltaTime);
     }
 
     private void AnimateVisual()
     {
-        if (visualRenderer == null)
-            return;
 
-        float t = (Mathf.Sin(Time.time * pulseSpeed + transform.position.x * 0.7f + transform.position.y * 0.35f) + 1f) * 0.5f;
+        //if (visualRenderer == null)
+        //    return;
 
-        Color c = visualRenderer.color;
-        c.a = Mathf.Lerp(minAlpha, maxAlpha, t);
-        visualRenderer.color = c;
+        //float t = (Mathf.Sin(Time.time * pulseSpeed + transform.position.x * 0.7f + transform.position.y * 0.35f) + 1f) * 0.5f;
 
-        float scale = Mathf.Lerp(minScale, maxScale, t);
-        visualRenderer.transform.localScale = new Vector3(scale, scale, 1f);
+        //Color c = visualRenderer.color;
+        //c.a = Mathf.Lerp(minAlpha, maxAlpha, t);
+        //visualRenderer.color = c;
+
+        //float scale = Mathf.Lerp(minScale, maxScale, t);
+        //visualRenderer.transform.localScale = new Vector3(scale, scale, 1f);
     }
 
     private void ApplyDamage(float dt)
