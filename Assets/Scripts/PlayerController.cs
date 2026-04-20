@@ -2,6 +2,7 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(Animator))]
+[RequireComponent(typeof(AudioSource))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Base Movement")]
@@ -14,13 +15,21 @@ public class PlayerController : MonoBehaviour
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayer;
 
+    [Header("Audio")]
+    public AudioClip jumpSound;
+
+    [Header("Movement Audio")]
+    public AudioClip moveSound;
+
     private Rigidbody2D rb;
     private Animator anim;
     private SpriteRenderer sr;
+    private AudioSource audioSource;
 
     private float moveInput;
     private bool isGrounded;
     private bool wasGrounded;
+    private bool isMoving;
     private int jumpsUsed;
 
     private float movementMultiplier = 1f;
@@ -34,6 +43,7 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         anim = GetComponent<Animator>();
         sr = GetComponent<SpriteRenderer>();
+        audioSource = GetComponent<AudioSource>();
     }
 
     void Update()
@@ -63,6 +73,11 @@ public class PlayerController : MonoBehaviour
                 transform.position.z
             );
 
+            if (audioSource.isPlaying)
+            {
+                audioSource.Stop();
+            }
+
             anim.SetFloat("Speed", 0f);
             return;
         }
@@ -78,6 +93,36 @@ public class PlayerController : MonoBehaviour
             );
 
             jumpsUsed++;
+
+            // Play jump sound
+            if (jumpSound != null)
+            {
+                audioSource.PlayOneShot(jumpSound);
+            }
+        }
+
+        // Check if player is moving on ground
+        isMoving = Mathf.Abs(moveInput) > 0.1f && isGrounded;
+
+        // Play / stop movement sound
+        if (moveSound != null)
+        {
+            if (isMoving)
+            {
+                if (!audioSource.isPlaying)
+                {
+                    audioSource.clip = moveSound;
+                    audioSource.loop = true;
+                    audioSource.Play();
+                }
+            }
+            else
+            {
+                if (audioSource.isPlaying && audioSource.clip == moveSound)
+                {
+                    audioSource.Stop();
+                }
+            }
         }
 
         // Animation
@@ -122,6 +167,11 @@ public class PlayerController : MonoBehaviour
         {
             lockedWorldPosition = worldPosition;
             rb.linearVelocity = Vector2.zero;
+
+            if (audioSource.isPlaying)
+            {
+                audioSource.Stop();
+            }
         }
     }
 
@@ -130,7 +180,6 @@ public class PlayerController : MonoBehaviour
         return controlLocked;
     }
 
-    // Optional: visualize ground check
     void OnDrawGizmosSelected()
     {
         if (groundCheck == null) return;
