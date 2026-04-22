@@ -13,6 +13,8 @@ public class PlayerController : MonoBehaviour
     public Transform groundCheck;
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayer;
+    private float groundResetLockTimer = 0f;
+    [SerializeField] private float groundResetLockDuration = 0.1f;
 
     private Rigidbody2D rb;
     private Animator anim;
@@ -38,20 +40,22 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        // Check if grounded
-        isGrounded = Physics2D.OverlapCircle(
+        if (groundResetLockTimer > 0f)
+            groundResetLockTimer -= Time.deltaTime;
+
+        bool groundedNow = Physics2D.OverlapCircle(
             groundCheck.position,
             groundCheckRadius,
             groundLayer
         );
 
-        // Reset jumps only when landing
-        if (isGrounded && !wasGrounded)
+        if (groundedNow && !wasGrounded && groundResetLockTimer <= 0f && rb.linearVelocity.y <= 0.01f)
         {
             jumpsUsed = 0;
         }
 
-        wasGrounded = isGrounded;
+        isGrounded = groundedNow;
+        wasGrounded = groundedNow;
 
         if (controlLocked)
         {
@@ -69,7 +73,6 @@ public class PlayerController : MonoBehaviour
 
         moveInput = Input.GetAxisRaw("Horizontal");
 
-        // Jump with spacebar
         if (Input.GetKeyDown(KeyCode.Space) && jumpsUsed < maxJumps)
         {
             rb.linearVelocity = new Vector2(
@@ -78,12 +81,12 @@ public class PlayerController : MonoBehaviour
             );
 
             jumpsUsed++;
+            groundResetLockTimer = groundResetLockDuration;
+            isGrounded = false;
         }
 
-        // Animation
         anim.SetFloat("Speed", Mathf.Abs(moveInput));
 
-        // Flip sprite
         if (moveInput != 0)
         {
             sr.flipX = moveInput < 0;

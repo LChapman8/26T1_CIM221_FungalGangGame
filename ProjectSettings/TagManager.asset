@@ -47,6 +47,9 @@ TagManager:
   - name: Playable Area
     uniqueID: 959404567
     locked: 0
+  - name: Player
+    uniqueID: 1361610257
+    locked: 0
   - name: Foreground
     uniqueID: 1954812277
     locked: 0
