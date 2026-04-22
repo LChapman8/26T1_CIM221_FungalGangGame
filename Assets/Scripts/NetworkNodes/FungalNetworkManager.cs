@@ -1,9 +1,12 @@
 using UnityEngine;
+using System;
 using System.Collections.Generic;
 
 public class FungalNetworkManager : MonoBehaviour
 {
     public static FungalNetworkManager Instance { get; private set; }
+
+    public event Action<float> OnNetworkHealthChanged;
 
     [Header("Player Reference")]
     [SerializeField] private PlayerController player;
@@ -94,6 +97,7 @@ public class FungalNetworkManager : MonoBehaviour
     private void Start()
     {
         ApplyPlayerScaling();
+        BroadcastHealthChanged();
     }
 
     public void RegisterNode(NetworkNode node)
@@ -102,6 +106,7 @@ public class FungalNetworkManager : MonoBehaviour
 
         nodes.Add(node);
         ApplyPlayerScaling();
+        BroadcastHealthChanged();
     }
 
     public void UnregisterNode(NetworkNode node)
@@ -111,16 +116,14 @@ public class FungalNetworkManager : MonoBehaviour
         if (nodes.Remove(node))
         {
             ApplyPlayerScaling();
+            BroadcastHealthChanged();
         }
     }
 
     public void NotifyNodeHealthChanged(NetworkNode changedNode)
     {
-        // To-Do:
-        // - update UI
-        // - check win condition
-        // - Clear partial pollution on node heal
         ApplyPlayerScaling();
+        BroadcastHealthChanged();
 
         if (AllNodesFullyRestored)
         {
@@ -183,6 +186,7 @@ public class FungalNetworkManager : MonoBehaviour
         }
 
         ApplyPlayerScaling();
+        BroadcastHealthChanged();
     }
 
     public void DamageAllNodes(float amount)
@@ -193,6 +197,7 @@ public class FungalNetworkManager : MonoBehaviour
         }
 
         ApplyPlayerScaling();
+        BroadcastHealthChanged();
     }
 
     public void RestoreAllNodesFully()
@@ -203,6 +208,7 @@ public class FungalNetworkManager : MonoBehaviour
         }
 
         ApplyPlayerScaling();
+        BroadcastHealthChanged();
     }
 
     public void ApplyPlayerScaling()
@@ -231,5 +237,10 @@ public class FungalNetworkManager : MonoBehaviour
         }
 
         return living;
+    }
+
+    private void BroadcastHealthChanged()
+    {
+        OnNetworkHealthChanged?.Invoke(NetworkHealthNormalized);
     }
 }

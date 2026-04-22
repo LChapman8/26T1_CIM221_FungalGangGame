@@ -13,6 +13,11 @@ public class NetworkNode : MonoBehaviour
     [SerializeField] private float fullRepairTime = 4.5f;
     [SerializeField] private Transform channelLockPoint;
 
+    [Header("Prompt")]
+    [SerializeField] private Transform promptAnchor;
+    [SerializeField] private Vector3 promptWorldOffset = new Vector3(0f, 1.25f, 0f);
+    private NodeInteractionPromptUI promptUI;
+
     [Header("Debug")]
     [SerializeField] private bool startFullyRepaired = true;
 
@@ -26,13 +31,17 @@ public class NetworkNode : MonoBehaviour
     public bool IsDestroyed => currentHealth <= 0.001f;
     public bool IsFullyHealed => currentHealth >= maxHealth - 0.001f;
 
+    public bool IsPlayerInRange => playerInRange != null;
+    public bool CanShowRepairPrompt => playerInRange != null && !IsFullyHealed;
+    public string RepairPromptText => $"Hold {repairKey}";
+    public Vector3 PromptWorldPosition =>
+        (promptAnchor != null ? promptAnchor.position : transform.position) + promptWorldOffset;
+
     public event Action<NetworkNode> OnNodeHealthChanged;
+    public event Action<NetworkNode> OnPromptStateChanged;
 
     private void Awake()
     {
-        // To-Do:
-        // - Set random starting health
-
         repairRatePerSecond = maxHealth / fullRepairTime;
 
         currentHealth = startFullyRepaired ? maxHealth : 0f;
@@ -47,6 +56,8 @@ public class NetworkNode : MonoBehaviour
         {
             FungalNetworkManager.Instance.RegisterNode(this);
         }
+
+        NotifyPromptStateChanged();
     }
 
     private void Start()
@@ -55,6 +66,13 @@ public class NetworkNode : MonoBehaviour
         {
             FungalNetworkManager.Instance.RegisterNode(this);
         }
+
+        if (promptUI == null)
+        {
+            promptUI = FindFirstObjectByType<NodeInteractionPromptUI>();
+        }
+
+        NotifyPromptStateChanged();
     }
 
     private void OnDisable()
@@ -63,6 +81,8 @@ public class NetworkNode : MonoBehaviour
         {
             FungalNetworkManager.Instance.UnregisterNode(this);
         }
+
+        NotifyPromptStateChanged();
     }
 
     private void Update()
@@ -95,6 +115,7 @@ public class NetworkNode : MonoBehaviour
         if (pc != null)
         {
             playerInRange = pc;
+            NotifyPromptStateChanged();
         }
     }
 
@@ -107,14 +128,12 @@ public class NetworkNode : MonoBehaviour
         {
             StopChanneling();
             playerInRange = null;
+            NotifyPromptStateChanged();
         }
     }
 
     private void StartChanneling()
     {
-        // To-Do:
-        // - Allow for healing while still in smog
-
         if (playerInRange == null) return;
 
         if (!isChanneling)
@@ -180,6 +199,7 @@ public class NetworkNode : MonoBehaviour
     private void NotifyHealthChanged()
     {
         OnNodeHealthChanged?.Invoke(this);
+        NotifyPromptStateChanged();
 
         if (FungalNetworkManager.Instance != null)
         {
@@ -187,10 +207,35 @@ public class NetworkNode : MonoBehaviour
         }
     }
 
+    private void NotifyPromptStateChanged()
+    {
+        OnPromptStateChanged?.Invoke(this);
+
+        if (promptUI == null)
+        {
+            promptUI = FindFirstObjectByType<NodeInteractionPromptUI>();
+        }
+
+        if (promptUI == null) return;
+
+        if (CanShowRepairPrompt)
+        {
+            promptUI.ShowForNode(this);
+        }
+        else
+        {
+            promptUI.ClearNode(this);
+        }
+    }
+
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.green;
-        Vector3 pos = channelLockPoint != null ? channelLockPoint.position : transform.position;
-        Gizmos.DrawWireSphere(pos, 0.15f);
+        Vector3 lockPos = channelLockPoint != null ? channelLockPoint.position : transform.position;
+        Gizmos.DrawWireSphere(lockPos, 0.15f);
+
+        Gizmos.color = Color.cyan;
+        Vector3 promptPos = (promptAnchor != null ? promptAnchor.position : transform.position) + promptWorldOffset;
+        Gizmos.DrawWireSphere(promptPos, 0.12f);
     }
 }
