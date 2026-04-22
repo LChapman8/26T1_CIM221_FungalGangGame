@@ -7,11 +7,16 @@ public class NetworkNode : MonoBehaviour
     [Header("Node Health")]
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private float currentHealth = 100f;
+    [SerializeField] private float randomStartHealthMin = 50f;
+    [SerializeField] private float randomStartHealthMax = 95f;
 
     [Header("Repair")]
     [SerializeField] private KeyCode repairKey = KeyCode.E;
     [SerializeField] private float fullRepairTime = 4.5f;
     [SerializeField] private Transform channelLockPoint;
+
+    [Header("Pollution Protection")]
+    [SerializeField] private float safeAreaRadius = 3f;
 
     [Header("Prompt")]
     [SerializeField] private Transform promptAnchor;
@@ -30,6 +35,9 @@ public class NetworkNode : MonoBehaviour
     public float HealthNormalized => maxHealth <= 0 ? 0f : currentHealth / maxHealth;
     public bool IsDestroyed => currentHealth <= 0.001f;
     public bool IsFullyHealed => currentHealth >= maxHealth - 0.001f;
+    public bool IsBeingActivelyRepaired => isChanneling && playerInRange != null && Input.GetKey(repairKey);
+    public float SafeAreaRadius => safeAreaRadius;
+    public Vector3 WorldPosition => transform.position;
 
     public bool IsPlayerInRange => playerInRange != null;
     public bool CanShowRepairPrompt => playerInRange != null && !IsFullyHealed;
@@ -39,12 +47,22 @@ public class NetworkNode : MonoBehaviour
 
     public event Action<NetworkNode> OnNodeHealthChanged;
     public event Action<NetworkNode> OnPromptStateChanged;
+    public event Action<NetworkNode> OnReachedFullHealth;
 
     private void Awake()
     {
         repairRatePerSecond = maxHealth / fullRepairTime;
 
-        currentHealth = startFullyRepaired ? maxHealth : 0f;
+        if (startFullyRepaired)
+        {
+            currentHealth = maxHealth;
+        }
+        else
+        {
+            float min = Mathf.Clamp(randomStartHealthMin, 0f, maxHealth);
+            float max = Mathf.Clamp(randomStartHealthMax, min, maxHealth);
+            currentHealth = UnityEngine.Random.Range(Mathf.RoundToInt(min), Mathf.RoundToInt(max) + 1);
+        }
 
         Collider2D col = GetComponent<Collider2D>();
         col.isTrigger = true;
@@ -164,11 +182,13 @@ public class NetworkNode : MonoBehaviour
     {
         if (amount <= 0f || IsDestroyed) return 0f;
 
+        bool wasFullyHealed = IsFullyHealed;
+
         float oldHealth = currentHealth;
         currentHealth = Mathf.Max(0f, currentHealth - amount);
         float actualDamage = oldHealth - currentHealth;
 
-        NotifyHealthChanged();
+        NotifyHealthChanged(wasFullyHealed);
         return actualDamage;
     }
 
@@ -176,30 +196,40 @@ public class NetworkNode : MonoBehaviour
     {
         if (amount <= 0f || IsFullyHealed) return 0f;
 
+        bool wasFullyHealed = IsFullyHealed;
+
         float oldHealth = currentHealth;
         currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
         float actualHealing = currentHealth - oldHealth;
 
-        NotifyHealthChanged();
+        NotifyHealthChanged(wasFullyHealed);
         return actualHealing;
     }
 
     public void SetHealth(float value)
     {
+        bool wasFullyHealed = IsFullyHealed;
         currentHealth = Mathf.Clamp(value, 0f, maxHealth);
-        NotifyHealthChanged();
+        NotifyHealthChanged(wasFullyHealed);
     }
 
     public void RestoreFully()
     {
+        bool wasFullyHealed = IsFullyHealed;
         currentHealth = maxHealth;
-        NotifyHealthChanged();
+        NotifyHealthChanged(wasFullyHealed);
     }
 
-    private void NotifyHealthChanged()
+    private void NotifyHealthChanged(bool wasFullyHealedBeforeChange)
     {
         OnNodeHealthChanged?.Invoke(this);
         NotifyPromptStateChanged();
+
+        bool becameFullyHealed = !wasFullyHealedBeforeChange && IsFullyHealed;
+        if (becameFullyHealed)
+        {
+            OnReachedFullHealth?.Invoke(this);
+        }
 
         if (FungalNetworkManager.Instance != null)
         {
@@ -237,5 +267,8 @@ public class NetworkNode : MonoBehaviour
         Gizmos.color = Color.cyan;
         Vector3 promptPos = (promptAnchor != null ? promptAnchor.position : transform.position) + promptWorldOffset;
         Gizmos.DrawWireSphere(promptPos, 0.12f);
+
+        Gizmos.color = new Color(0.65f, 0.8f, 0.6f, 0.65f);
+        Gizmos.DrawWireSphere(transform.position, safeAreaRadius);
     }
 }

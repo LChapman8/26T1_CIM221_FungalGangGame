@@ -127,12 +127,6 @@ public class FungalNetworkManager : MonoBehaviour
 
         if (AllNodesFullyRestored)
         {
-            PollutionManager pollution = FindFirstObjectByType<PollutionManager>();
-            if (pollution != null)
-            {
-                pollution.ClearAllPollution();
-            }
-
             Debug.Log("All nodes restored. Trigger win state.");
         }
     }

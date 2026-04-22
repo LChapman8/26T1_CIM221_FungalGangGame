@@ -6,16 +6,18 @@ using UnityEngine;
 public class PollutionCell : MonoBehaviour
 {
     [Header("Damage")]
-    [SerializeField] private float playerDamagePerSecond = 12f;
-    [SerializeField] private float nodeDamagePerSecond = 18f;
+    [SerializeField] private float damagePulseInterval = 2.0f;
+    [SerializeField] private float playerDamagePerPulse = 5f;
+    [SerializeField] private float nodeDamagePerPulse = 5f;
+    private float damagePulseTimer;
 
     [Header("Visual Pulse")]
     [SerializeField] private SpriteRenderer visualRenderer;
     [SerializeField] private float pulseSpeed = 1.5f;
-    [SerializeField] private float minAlpha = 0.28f;
-    [SerializeField] private float maxAlpha = 0.45f;
-    [SerializeField] private float minScale = 0.92f;
-    [SerializeField] private float maxScale = 1.08f;
+    [SerializeField] private float minAlpha = 0.35f;
+    [SerializeField] private float maxAlpha = 0.65f;
+    [SerializeField] private float minScale = 6f;
+    [SerializeField] private float maxScale = 9f;
 
     private PollutionManager manager;
     private Vector2Int gridPos;
@@ -46,7 +48,7 @@ public class PollutionCell : MonoBehaviour
     private void Update()
     {
         AnimateVisual();
-        ApplyDamage(Time.deltaTime);
+        UpdateDamagePulse(Time.deltaTime);
     }
 
     private void AnimateVisual()
@@ -64,11 +66,22 @@ public class PollutionCell : MonoBehaviour
         visualRenderer.transform.localScale = new Vector3(scale, scale, 1f);
     }
 
-    private void ApplyDamage(float dt)
+    private void UpdateDamagePulse(float dt)
     {
-        if (dt <= 0f)
+        if (dt <= 0f || damagePulseInterval <= 0f)
             return;
 
+        damagePulseTimer += dt;
+
+        while (damagePulseTimer >= damagePulseInterval)
+        {
+            damagePulseTimer -= damagePulseInterval;
+            ApplyDamagePulse();
+        }
+    }
+
+    private void ApplyDamagePulse()
+    {
         if (playersInside.Count > 0 && FungalNetworkManager.Instance != null)
         {
             playerSnapshot.Clear();
@@ -76,7 +89,7 @@ public class PollutionCell : MonoBehaviour
 
             if (playerSnapshot.Count > 0)
             {
-                FungalNetworkManager.Instance.ApplyDirectPlayerDamage(playerDamagePerSecond * dt);
+                FungalNetworkManager.Instance.ApplyDirectPlayerDamage(playerDamagePerPulse);
             }
         }
 
@@ -94,11 +107,13 @@ public class PollutionCell : MonoBehaviour
 
                 if (!node.IsDestroyed)
                 {
-                    node.Damage(nodeDamagePerSecond * dt);
+                    if (!node.IsBeingActivelyRepaired)
+                    {
+                        node.Damage(nodeDamagePerPulse);
 
-                    // This PollutionCell may have been destroyed by side effects.
-                    if (this == null || !isActiveAndEnabled)
-                        return;
+                        if (this == null || !isActiveAndEnabled)
+                            return;
+                    }
                 }
             }
         }
@@ -134,6 +149,7 @@ public class PollutionCell : MonoBehaviour
 
     private void OnDisable()
     {
+        damagePulseTimer = 0f;
         playersInside.Clear();
         nodesInside.Clear();
         playerSnapshot.Clear();

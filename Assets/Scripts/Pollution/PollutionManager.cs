@@ -13,23 +13,27 @@ public class PollutionManager : MonoBehaviour
     [SerializeField] private float cellSize = 2f;
 
     [Header("Startup")]
-    [SerializeField] private int initialSeedCount = 5;
-    //[SerializeField] private int maxInitialSeedAttempts = 100;
+    [SerializeField] private int initialSeedCount = 4;
 
     [Header("Spread")]
-    [SerializeField] private float baseSpreadInterval = 1.25f;
-    [SerializeField] private float minSpreadInterval = 0.25f;
-    [SerializeField] private float baseSpreadChance = 0.35f;
-    [SerializeField] private float extraSpreadChanceAtMaxCollapse = 0.4f;
+    [SerializeField] private float baseSpreadInterval = 2.5f;
+    [SerializeField] private float minSpreadInterval = 0.9f;
+    [SerializeField] private float baseSpreadChance = 0.18f;
+    [SerializeField] private float extraSpreadChanceAtMaxCollapse = 0.22f;
     [SerializeField] private bool use8Directions = false;
+
+    [Header("Safe Area Cleanup")]
+    [SerializeField] private bool clearProtectedAreasAtStart = true;
+    [SerializeField] private int randomRemoteClearRadiusInCells = 2;
+    [SerializeField] private int randomRemoteClearAttempts = 20;
+    [SerializeField] private float randomRemoteMinDistanceFromNode = 8f;
 
     [Header("Cleanup")]
     [SerializeField] private bool clearAllPollutionWhenAllNodesRestored = true;
 
     private readonly Dictionary<Vector2Int, PollutionCell> activeCells = new();
     private readonly HashSet<Vector2Int> validGridCells = new();
-
-    private bool networkHasBeenDamagedAtLeastOnce = false;
+    private readonly HashSet<NetworkNode> subscribedNodes = new();
 
     private static readonly Vector2Int[] CardinalDirs =
     {
@@ -63,28 +67,21 @@ public class PollutionManager : MonoBehaviour
         }
 
         BuildValidGrid();
+        SubscribeToNodes();
+
         SpawnInitialSeeds();
+
+        if (clearProtectedAreasAtStart)
+        {
+            ClearAllProtectedAreas();
+        }
+
         StartCoroutine(SpreadRoutine());
     }
 
-    private void Update()
+    private void OnDestroy()
     {
-        if (networkManager != null && !networkHasBeenDamagedAtLeastOnce)
-        {
-            if (networkManager.NetworkHealthNormalized < 0.999f)
-            {
-                networkHasBeenDamagedAtLeastOnce = true;
-            }
-        }
-
-        if (clearAllPollutionWhenAllNodesRestored &&
-            networkHasBeenDamagedAtLeastOnce &&
-            networkManager != null &&
-            networkManager.AllNodesFullyRestored &&
-            activeCells.Count > 0)
-        {
-            ClearAllPollution();
-        }
+        UnsubscribeFromNodes();
     }
 
     private IEnumerator SpreadRoutine()
@@ -98,6 +95,51 @@ public class PollutionManager : MonoBehaviour
                 continue;
 
             SpreadStep();
+        }
+    }
+
+    private void SubscribeToNodes()
+    {
+        subscribedNodes.Clear();
+
+        if (networkManager == null)
+            return;
+
+        for (int i = 0; i < networkManager.Nodes.Count; i++)
+        {
+            NetworkNode node = networkManager.Nodes[i];
+            if (node == null || subscribedNodes.Contains(node))
+                continue;
+
+            node.OnReachedFullHealth += HandleNodeReachedFullHealth;
+            subscribedNodes.Add(node);
+        }
+    }
+
+    private void UnsubscribeFromNodes()
+    {
+        foreach (NetworkNode node in subscribedNodes)
+        {
+            if (node != null)
+                node.OnReachedFullHealth -= HandleNodeReachedFullHealth;
+        }
+
+        subscribedNodes.Clear();
+    }
+
+    private void HandleNodeReachedFullHealth(NetworkNode node)
+    {
+        if (node == null)
+            return;
+
+        ClearProtectedArea(node);
+        ClearRandomRemoteArea(node, randomRemoteClearRadiusInCells, randomRemoteClearAttempts);
+
+        if (clearAllPollutionWhenAllNodesRestored &&
+            networkManager != null &&
+            networkManager.AllNodesFullyRestored)
+        {
+            ClearAllPollution();
         }
     }
 
@@ -143,7 +185,7 @@ public class PollutionManager : MonoBehaviour
             Vector2Int randomCell = cellPool[index];
             cellPool.RemoveAt(index);
 
-            if (!HasCell(randomCell))
+            if (!HasCell(randomCell) && !IsProtectedCell(randomCell))
             {
                 SpawnCell(randomCell);
             }
@@ -169,8 +211,10 @@ public class PollutionManager : MonoBehaviour
 
         for (int i = 0; i < cellsToSpawn.Count; i++)
         {
-            if (!HasCell(cellsToSpawn[i]))
-                SpawnCell(cellsToSpawn[i]);
+            Vector2Int pos = cellsToSpawn[i];
+
+            if (!HasCell(pos) && !IsProtectedCell(pos))
+                SpawnCell(pos);
         }
     }
 
@@ -193,6 +237,9 @@ public class PollutionManager : MonoBehaviour
             if (HasCell(next))
                 continue;
 
+            if (IsProtectedCell(next))
+                continue;
+
             if (!cellsToSpawn.Contains(next))
                 cellsToSpawn.Add(next);
         }
@@ -200,6 +247,9 @@ public class PollutionManager : MonoBehaviour
 
     private PollutionCell SpawnCell(Vector2Int gridPos)
     {
+        if (IsProtectedCell(gridPos))
+            return null;
+
         Vector3 worldPos = GridToWorld(gridPos);
         PollutionCell cell = Instantiate(pollutionCellPrefab, worldPos, Quaternion.identity, transform);
         cell.Initialize(this, gridPos);
@@ -244,6 +294,113 @@ public class PollutionManager : MonoBehaviour
         }
     }
 
+    public void ClearProtectedArea(NetworkNode node)
+    {
+        if (node == null)
+            return;
+
+        List<Vector2Int> toRemove = new();
+
+        foreach (Vector2Int cell in activeCells.Keys)
+        {
+            if (IsCellInsideNodeSafeArea(cell, node))
+                toRemove.Add(cell);
+        }
+
+        for (int i = 0; i < toRemove.Count; i++)
+        {
+            RemoveCell(toRemove[i]);
+        }
+    }
+
+    public void ClearAllProtectedAreas()
+    {
+        if (networkManager == null)
+            return;
+
+        for (int i = 0; i < networkManager.Nodes.Count; i++)
+        {
+            NetworkNode node = networkManager.Nodes[i];
+            if (node != null && node.IsFullyHealed)
+            {
+                ClearProtectedArea(node);
+            }
+        }
+    }
+
+    public void ClearRandomRemoteArea(NetworkNode sourceNode, int radiusInCells, int attempts = 20)
+    {
+        if (validGridCells.Count == 0)
+            return;
+
+        List<Vector2Int> candidates = new(validGridCells);
+
+        for (int i = 0; i < attempts && candidates.Count > 0; i++)
+        {
+            int index = Random.Range(0, candidates.Count);
+            Vector2Int center = candidates[index];
+            candidates.RemoveAt(index);
+
+            Vector3 worldCenter = GridToWorld(center);
+
+            if (sourceNode != null)
+            {
+                float distance = Vector2.Distance(sourceNode.WorldPosition, worldCenter);
+                if (distance < randomRemoteMinDistanceFromNode)
+                    continue;
+            }
+
+            ClearArea(center, radiusInCells);
+            return;
+        }
+    }
+
+    public void ClearArea(Vector2Int center, int radiusInCells)
+    {
+        if (radiusInCells < 0)
+            return;
+
+        List<Vector2Int> toRemove = new();
+
+        foreach (Vector2Int cell in activeCells.Keys)
+        {
+            if (Mathf.Abs(cell.x - center.x) <= radiusInCells &&
+                Mathf.Abs(cell.y - center.y) <= radiusInCells)
+            {
+                toRemove.Add(cell);
+            }
+        }
+
+        for (int i = 0; i < toRemove.Count; i++)
+        {
+            RemoveCell(toRemove[i]);
+        }
+    }
+
+    public bool IsProtectedCell(Vector2Int gridPos)
+    {
+        if (networkManager == null)
+            return false;
+
+        for (int i = 0; i < networkManager.Nodes.Count; i++)
+        {
+            NetworkNode node = networkManager.Nodes[i];
+            if (node == null || !node.IsFullyHealed)
+                continue;
+
+            if (IsCellInsideNodeSafeArea(gridPos, node))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsCellInsideNodeSafeArea(Vector2Int gridPos, NetworkNode node)
+    {
+        Vector2 worldPos = GridToWorld(gridPos);
+        return Vector2.Distance(worldPos, node.WorldPosition) <= node.SafeAreaRadius;
+    }
+
     public bool HasCell(Vector2Int gridPos)
     {
         return activeCells.ContainsKey(gridPos);
@@ -265,31 +422,22 @@ public class PollutionManager : MonoBehaviour
 
     public float GetCurrentSpreadInterval()
     {
-        float collapse = GetDestroyedNodeRatio();
+        float collapse = GetNetworkCollapseRatio();
         return Mathf.Lerp(baseSpreadInterval, minSpreadInterval, collapse);
     }
 
     public float GetCurrentSpreadChance()
     {
-        float collapse = GetDestroyedNodeRatio();
+        float collapse = GetNetworkCollapseRatio();
         return baseSpreadChance + extraSpreadChanceAtMaxCollapse * collapse;
     }
 
-    private float GetDestroyedNodeRatio()
+    private float GetNetworkCollapseRatio()
     {
-        if (networkManager == null || networkManager.Nodes.Count == 0)
+        if (networkManager == null)
             return 0f;
 
-        int destroyed = 0;
-        int total = networkManager.Nodes.Count;
-
-        for (int i = 0; i < total; i++)
-        {
-            if (networkManager.Nodes[i].IsDestroyed)
-                destroyed++;
-        }
-
-        return total <= 0 ? 0f : (float)destroyed / total;
+        return 1f - networkManager.NetworkHealthNormalized;
     }
 
     private void OnDrawGizmosSelected()
