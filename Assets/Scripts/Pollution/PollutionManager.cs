@@ -14,7 +14,7 @@ public class PollutionManager : MonoBehaviour
 
     [Header("Startup")]
     [SerializeField] private int initialSeedCount = 5;
-    // [SerializeField] private int maxInitialSeedAttempts = 100;
+    //[SerializeField] private int maxInitialSeedAttempts = 100;
 
     [Header("Spread")]
     [SerializeField] private float baseSpreadInterval = 1.25f;
