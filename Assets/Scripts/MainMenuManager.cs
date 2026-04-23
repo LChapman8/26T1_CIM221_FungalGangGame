@@ -3,16 +3,24 @@ using UnityEngine.SceneManagement;
 
 public class MainMenuManager : MonoBehaviour
 {
-    
-    public void PlayGame()
+   
+    public void PlayGame()
     {
-        SceneManager.LoadScene("SampleScene"); 
-    }
+        Time.timeScale = 1f; 
+        SceneManager.LoadScene("SampleScene");
+    }
 
-    
-    public void QuitGame()
+    
+    public void LoadMainMenu()
     {
-        Debug.Log("Quit Game"); 
-        Application.Quit();
+        Time.timeScale = 1f; 
+        SceneManager.LoadScene("MainMenu"); 
+    }
+
+    
+    public void QuitGame()
+    {
+        Debug.Log("Quit Game");
+        Application.Quit();
     }
 }
