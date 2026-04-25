@@ -16,6 +16,12 @@ public class PlayerController : MonoBehaviour
     private float groundResetLockTimer = 0f;
     [SerializeField] private float groundResetLockDuration = 0.1f;
 
+    [Header("Audio")]
+    public AudioClip movementSound;
+    public AudioClip jumpSound;
+    public AudioSource movementAudio; 
+    public AudioSource jumpAudio;    
+
     private Rigidbody2D rb;
     private Animator anim;
     private SpriteRenderer sr;
@@ -61,6 +67,10 @@ public class PlayerController : MonoBehaviour
         {
             moveInput = 0f;
             rb.linearVelocity = Vector2.zero;
+
+            if (movementAudio != null && movementAudio.isPlaying)
+                movementAudio.Stop();
+
             transform.position = new Vector3(
                 lockedWorldPosition.x,
                 lockedWorldPosition.y,
@@ -73,6 +83,7 @@ public class PlayerController : MonoBehaviour
 
         moveInput = Input.GetAxisRaw("Horizontal");
 
+        
         if (Input.GetKeyDown(KeyCode.Space) && jumpsUsed < maxJumps)
         {
             rb.linearVelocity = new Vector2(
@@ -83,6 +94,35 @@ public class PlayerController : MonoBehaviour
             jumpsUsed++;
             groundResetLockTimer = groundResetLockDuration;
             isGrounded = false;
+
+            
+            if (jumpSound != null && jumpAudio != null)
+            {
+                jumpAudio.PlayOneShot(jumpSound);
+            }
+        }
+
+        
+        bool isMovingOnGround = Mathf.Abs(moveInput) > 0.1f && isGrounded;
+
+        if (movementSound != null && movementAudio != null)
+        {
+            if (isMovingOnGround)
+            {
+                if (!movementAudio.isPlaying)
+                {
+                    movementAudio.clip = movementSound;
+                    movementAudio.loop = true;
+                    movementAudio.Play();
+                }
+            }
+            else
+            {
+                if (movementAudio.isPlaying)
+                {
+                    movementAudio.Stop();
+                }
+            }
         }
 
         anim.SetFloat("Speed", Mathf.Abs(moveInput));
@@ -133,7 +173,6 @@ public class PlayerController : MonoBehaviour
         return controlLocked;
     }
 
-    // Optional: visualize ground check
     void OnDrawGizmosSelected()
     {
         if (groundCheck == null) return;
