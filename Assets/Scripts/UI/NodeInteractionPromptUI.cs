@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class NodeInteractionPromptUI : MonoBehaviour
 {
@@ -8,6 +9,13 @@ public class NodeInteractionPromptUI : MonoBehaviour
     [SerializeField] private Canvas parentCanvas;
     [SerializeField] private RectTransform promptRoot;
     [SerializeField] private TMP_Text promptText;
+    [SerializeField] private GameObject promptContainer;
+    [SerializeField] private GameObject healthBarContainer;
+    [SerializeField] private Image healthFillImage;
+
+    [Header("Health Bar Colors")]
+    [SerializeField] private Color lowHealthColor = new Color(0.8f, 0.15f, 0.15f);
+    [SerializeField] private Color highHealthColor = new Color(0.3f, 0.9f, 0.45f);
 
     [Header("Behavior")]
     [SerializeField] private Vector2 screenOffset = new Vector2(0f, 30f);
@@ -60,9 +68,26 @@ public class NodeInteractionPromptUI : MonoBehaviour
         }
 
         promptRoot.gameObject.SetActive(true);
-        promptText.text = currentNode.RepairPromptText;
-
         promptRoot.position = screenPos + (Vector3)screenOffset;
+
+        bool isRepairing = currentNode.IsBeingActivelyRepaired;
+
+        if (promptContainer != null)
+            promptContainer.SetActive(!isRepairing);
+
+        if (healthBarContainer != null)
+            healthBarContainer.SetActive(isRepairing);
+
+        if (!isRepairing)
+        {
+            promptText.text = currentNode.RepairPromptText;
+        }
+        else if (healthFillImage != null)
+        {
+            float fill = currentNode.HealthNormalized;
+            healthFillImage.fillAmount = fill;
+            healthFillImage.color = Color.Lerp(lowHealthColor, highHealthColor, fill);
+        }
     }
 
     public void ShowForNode(NetworkNode node)
@@ -82,8 +107,12 @@ public class NodeInteractionPromptUI : MonoBehaviour
     private void HidePrompt()
     {
         if (promptRoot != null)
-        {
             promptRoot.gameObject.SetActive(false);
-        }
+
+        if (promptContainer != null)
+            promptContainer.SetActive(false);
+
+        if (healthBarContainer != null)
+            healthBarContainer.SetActive(false);
     }
 }

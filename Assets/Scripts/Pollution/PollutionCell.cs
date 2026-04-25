@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,7 +8,7 @@ public class PollutionCell : MonoBehaviour
 {
     [Header("Damage")]
     [SerializeField] private float damagePulseInterval = 2.0f;
-    [SerializeField] private float playerDamagePerPulse = 5f;
+    //[SerializeField] private float playerDamagePerPulse = 5f;
     [SerializeField] private float nodeDamagePerPulse = 5f;
     private float damagePulseTimer;
 
@@ -22,10 +23,10 @@ public class PollutionCell : MonoBehaviour
     private PollutionManager manager;
     private Vector2Int gridPos;
 
-    private readonly HashSet<PlayerController> playersInside = new();
+    //private readonly HashSet<PlayerController> playersInside = new();
     private readonly HashSet<NetworkNode> nodesInside = new();
 
-    private readonly List<PlayerController> playerSnapshot = new();
+    //private readonly List<PlayerController> playerSnapshot = new();
     private readonly List<NetworkNode> nodeSnapshot = new();
 
     public void Initialize(PollutionManager pollutionManager, Vector2Int position)
@@ -82,16 +83,16 @@ public class PollutionCell : MonoBehaviour
 
     private void ApplyDamagePulse()
     {
-        if (playersInside.Count > 0 && FungalNetworkManager.Instance != null)
-        {
-            playerSnapshot.Clear();
-            playerSnapshot.AddRange(playersInside);
+        //if (playersInside.Count > 0 && FungalNetworkManager.Instance != null)
+        //{
+        //    playerSnapshot.Clear();
+        //    playerSnapshot.AddRange(playersInside);
 
-            if (playerSnapshot.Count > 0)
-            {
-                FungalNetworkManager.Instance.ApplyDirectPlayerDamage(playerDamagePerPulse);
-            }
-        }
+        //    if (playerSnapshot.Count > 0)
+        //    {
+        //        FungalNetworkManager.Instance.ApplyDirectPlayerDamage(playerDamagePerPulse);
+        //    }
+        //}
 
         if (nodesInside.Count > 0)
         {
@@ -119,14 +120,48 @@ public class PollutionCell : MonoBehaviour
         }
     }
 
+    public IEnumerator FadeOutAndDestroy(float duration)
+    {
+        if (visualRenderer == null)
+        {
+            Destroy(gameObject);
+            yield break;
+        }
+
+        Color startColor = visualRenderer.color;
+        Vector3 startScale = visualRenderer.transform.localScale;
+
+        float t = 0f;
+
+        while (t < duration)
+        {
+            t += Time.unscaledDeltaTime;
+            float progress = Mathf.Clamp01(t / duration);
+
+            Color c = startColor;
+            c.a = Mathf.Lerp(startColor.a, 0f, progress);
+            visualRenderer.color = c;
+
+            visualRenderer.transform.localScale = Vector3.Lerp(
+                startScale,
+                startScale * 1.25f,
+                progress
+            );
+
+            yield return null;
+        }
+
+        Destroy(gameObject);
+    }
+
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.CompareTag("Player"))
-        {
-            PlayerController pc = other.GetComponent<PlayerController>();
-            if (pc != null)
-                playersInside.Add(pc);
-        }
+        //if (other.CompareTag("Player"))
+        //{
+        //    PlayerController pc = other.GetComponent<PlayerController>();
+        //    if (pc != null)
+        //        playersInside.Add(pc);
+        //}
 
         NetworkNode node = other.GetComponent<NetworkNode>();
         if (node != null)
@@ -135,12 +170,12 @@ public class PollutionCell : MonoBehaviour
 
     private void OnTriggerExit2D(Collider2D other)
     {
-        if (other.CompareTag("Player"))
-        {
-            PlayerController pc = other.GetComponent<PlayerController>();
-            if (pc != null)
-                playersInside.Remove(pc);
-        }
+        //if (other.CompareTag("Player"))
+        //{
+        //    PlayerController pc = other.GetComponent<PlayerController>();
+        //    if (pc != null)
+        //        playersInside.Remove(pc);
+        //}
 
         NetworkNode node = other.GetComponent<NetworkNode>();
         if (node != null)
@@ -150,9 +185,9 @@ public class PollutionCell : MonoBehaviour
     private void OnDisable()
     {
         damagePulseTimer = 0f;
-        playersInside.Clear();
+        //playersInside.Clear();
         nodesInside.Clear();
-        playerSnapshot.Clear();
+        //playerSnapshot.Clear();
         nodeSnapshot.Clear();
     }
 }

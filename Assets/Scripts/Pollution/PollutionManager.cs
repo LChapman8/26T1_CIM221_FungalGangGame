@@ -8,6 +8,7 @@ public class PollutionManager : MonoBehaviour
     [SerializeField] private Collider2D pollutionBounds;
     [SerializeField] private PollutionCell pollutionCellPrefab;
     [SerializeField] private FungalNetworkManager networkManager;
+    [SerializeField] private PollutionClearCinematicController clearCinematicController;
 
     [Header("Grid")]
     [SerializeField] private float cellSize = 2f;
@@ -30,6 +31,7 @@ public class PollutionManager : MonoBehaviour
 
     [Header("Cleanup")]
     [SerializeField] private bool clearAllPollutionWhenAllNodesRestored = true;
+    private bool finalPollutionClearStarted;
 
     private readonly Dictionary<Vector2Int, PollutionCell> activeCells = new();
     private readonly HashSet<Vector2Int> validGridCells = new();
@@ -71,6 +73,9 @@ public class PollutionManager : MonoBehaviour
 
         SpawnInitialSeeds();
 
+        if (networkManager != null)
+            networkManager.OnNetworkHealthChanged += HandleNetworkHealthChanged;
+
         if (clearProtectedAreasAtStart)
         {
             ClearAllProtectedAreas();
@@ -82,6 +87,14 @@ public class PollutionManager : MonoBehaviour
     private void OnDestroy()
     {
         UnsubscribeFromNodes();
+
+        if (networkManager != null)
+            networkManager.OnNetworkHealthChanged -= HandleNetworkHealthChanged;
+    }
+
+    private void HandleNetworkHealthChanged(float normalizedHealth)
+    {
+        TryClearAllPollutionIfAllNodesRestored();
     }
 
     private IEnumerator SpreadRoutine()
@@ -132,14 +145,37 @@ public class PollutionManager : MonoBehaviour
         if (node == null)
             return;
 
-        ClearProtectedArea(node);
+        if (networkManager != null && networkManager.AllNodesFullyRestored)
+        {
+            TryClearAllPollutionIfAllNodesRestored();
+            return;
+        }
+
+        if (clearCinematicController != null)
+        {
+            clearCinematicController.PlayForNode(node);
+        }
+        else
+        {
+            ClearProtectedArea(node);
+        }
+
         ClearRandomRemoteArea(node, randomRemoteClearRadiusInCells, randomRemoteClearAttempts);
 
         if (clearAllPollutionWhenAllNodesRestored &&
             networkManager != null &&
             networkManager.AllNodesFullyRestored)
         {
-            ClearAllPollution();
+            if (clearCinematicController != null)
+            {
+                clearCinematicController.PlayForAllPollution();
+            }
+            else
+            {
+                ClearAllPollution();
+            }
+
+            return;
         }
     }
 
@@ -231,13 +267,7 @@ public class PollutionManager : MonoBehaviour
 
             Vector2Int next = origin + dirs[i];
 
-            if (!IsValidGridCell(next))
-                continue;
-
-            if (HasCell(next))
-                continue;
-
-            if (IsProtectedCell(next))
+            if (!CanSpawnPollutionAt(next))
                 continue;
 
             if (!cellsToSpawn.Contains(next))
@@ -245,9 +275,34 @@ public class PollutionManager : MonoBehaviour
         }
     }
 
+    private bool HasAnyFreeUnprotectedCell()
+    {
+        foreach (Vector2Int cell in validGridCells)
+        {
+            if (!HasCell(cell) && !IsProtectedCell(cell))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool CanSpawnPollutionAt(Vector2Int gridPos)
+    {
+        if (!IsValidGridCell(gridPos))
+            return false;
+
+        if (HasCell(gridPos))
+            return false;
+
+        if (!IsProtectedCell(gridPos))
+            return true;
+
+        return !HasAnyFreeUnprotectedCell();
+    }
+
     private PollutionCell SpawnCell(Vector2Int gridPos)
     {
-        if (IsProtectedCell(gridPos))
+        if (!CanSpawnPollutionAt(gridPos))
             return null;
 
         Vector3 worldPos = GridToWorld(gridPos);
@@ -355,6 +410,43 @@ public class PollutionManager : MonoBehaviour
         }
     }
 
+    public List<PollutionCell> GetProtectedAreaCells(NetworkNode node)
+    {
+        List<PollutionCell> cells = new();
+
+        if (node == null)
+            return cells;
+
+        foreach (var pair in activeCells)
+        {
+            if (IsCellInsideNodeSafeArea(pair.Key, node))
+                cells.Add(pair.Value);
+        }
+
+        return cells;
+    }
+
+    public List<PollutionCell> GetAllActiveCells()
+    {
+        return new List<PollutionCell>(activeCells.Values);
+    }
+
+    public void RemoveCellsFromTracking(List<PollutionCell> cells)
+    {
+        List<Vector2Int> toRemove = new();
+
+        foreach (var pair in activeCells)
+        {
+            if (cells.Contains(pair.Value))
+                toRemove.Add(pair.Key);
+        }
+
+        for (int i = 0; i < toRemove.Count; i++)
+        {
+            activeCells.Remove(toRemove[i]);
+        }
+    }
+
     public void ClearArea(Vector2Int center, int radiusInCells)
     {
         if (radiusInCells < 0)
@@ -393,6 +485,18 @@ public class PollutionManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    public void ClearAllPollutionWithCinematic()
+    {
+        if (clearCinematicController != null)
+        {
+            clearCinematicController.PlayForAllPollution();
+        }
+        else
+        {
+            ClearAllPollution();
+        }
     }
 
     private bool IsCellInsideNodeSafeArea(Vector2Int gridPos, NetworkNode node)
@@ -448,5 +552,24 @@ public class PollutionManager : MonoBehaviour
         Gizmos.color = new Color(0.3f, 0.9f, 0.3f, 0.4f);
         Bounds b = pollutionBounds.bounds;
         Gizmos.DrawWireCube(b.center, b.size);
+    }
+
+    private void TryClearAllPollutionIfAllNodesRestored()
+    {
+        if (finalPollutionClearStarted)
+            return;
+
+        if (!clearAllPollutionWhenAllNodesRestored)
+            return;
+
+        if (networkManager == null || !networkManager.AllNodesFullyRestored)
+            return;
+
+        finalPollutionClearStarted = true;
+
+        if (clearCinematicController != null)
+            clearCinematicController.PlayForAllPollution();
+        else
+            ClearAllPollution();
     }
 }

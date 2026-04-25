@@ -20,7 +20,11 @@ public class PlayerController : MonoBehaviour
     public AudioClip movementSound;
     public AudioClip jumpSound;
     public AudioSource movementAudio; 
-    public AudioSource jumpAudio;    
+    public AudioSource jumpAudio;
+
+    [Header("Repair Sorting")]
+    [SerializeField] private int repairSortingOrder = -5;
+    private int defaultSortingOrder;
 
     private Rigidbody2D rb;
     private Animator anim;
@@ -42,6 +46,8 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         anim = GetComponent<Animator>();
         sr = GetComponent<SpriteRenderer>();
+        if (sr != null)
+            defaultSortingOrder = sr.sortingOrder;
     }
 
     void Update()
@@ -145,6 +151,14 @@ public class PlayerController : MonoBehaviour
             moveInput * moveSpeed * movementMultiplier,
             rb.linearVelocity.y
         );
+    }
+
+    public void SetRepairSorting(bool repairing)
+    {
+        if (sr == null)
+            return;
+
+        sr.sortingOrder = repairing ? repairSortingOrder : defaultSortingOrder;
     }
 
     public void SetMovementMultiplier(float multiplier)

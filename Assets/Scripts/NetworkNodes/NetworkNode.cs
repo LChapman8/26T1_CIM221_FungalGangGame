@@ -163,6 +163,7 @@ public class NetworkNode : MonoBehaviour
                 : playerInRange.transform.position;
 
             playerInRange.SetControlLock(true, lockPos);
+            playerInRange.SetRepairSorting(true);
         }
     }
 
@@ -175,6 +176,7 @@ public class NetworkNode : MonoBehaviour
         if (playerInRange != null)
         {
             playerInRange.SetControlLock(false);
+            playerInRange.SetRepairSorting(false);
         }
     }
 

@@ -40,7 +40,12 @@ public class DevControls : MonoBehaviour
             networkManager.ApplyDirectPlayerDamagePercent(playerDamagePercent);
 
         if (Input.GetKeyDown(KeyCode.F5))
+        {
             networkManager.RestoreAllNodesFully();
+
+            if (pollutionManager != null)
+                pollutionManager.ClearAllPollutionWithCinematic();
+        }
 
         if (Input.GetKeyDown(KeyCode.F6))
             Debug.Log($"Network Health: {networkManager.NetworkHealthPercent:0.0}%");
@@ -49,7 +54,7 @@ public class DevControls : MonoBehaviour
             pollutionManager.ClearRandomCells(3);
 
         if (Input.GetKeyDown(KeyCode.F8) && pollutionManager != null)
-            pollutionManager.ClearAllPollution();
+            pollutionManager.ClearAllPollutionWithCinematic();
     }
 
     private void OnGUI()
