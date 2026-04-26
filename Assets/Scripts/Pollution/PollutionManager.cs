@@ -37,6 +37,29 @@ public class PollutionManager : MonoBehaviour
     private readonly HashSet<Vector2Int> validGridCells = new();
     private readonly HashSet<NetworkNode> subscribedNodes = new();
 
+    public event System.Action<float> OnPollutionCoverageChanged;
+
+    public float PollutionCoverageNormalized
+    {
+        get
+        {
+            if (validGridCells.Count == 0)
+                return 0f;
+
+            return Mathf.Clamp01((float)activeCells.Count / validGridCells.Count);
+        }
+    }
+
+    public float PollutionCoveragePercent => PollutionCoverageNormalized * 100f;
+
+    public bool IsPollutionGridFull =>
+        validGridCells.Count > 0 && activeCells.Count >= validGridCells.Count;
+
+    private void BroadcastPollutionCoverageChanged()
+    {
+        OnPollutionCoverageChanged?.Invoke(PollutionCoverageNormalized);
+    }
+
     private static readonly Vector2Int[] CardinalDirs =
     {
         new Vector2Int(1, 0),
@@ -309,6 +332,7 @@ public class PollutionManager : MonoBehaviour
         PollutionCell cell = Instantiate(pollutionCellPrefab, worldPos, Quaternion.identity, transform);
         cell.Initialize(this, gridPos);
         activeCells.Add(gridPos, cell);
+        BroadcastPollutionCoverageChanged();
         return cell;
     }
 
@@ -318,6 +342,7 @@ public class PollutionManager : MonoBehaviour
             return;
 
         activeCells.Remove(gridPos);
+        BroadcastPollutionCoverageChanged();
 
         if (cell != null)
             Destroy(cell.gameObject);
